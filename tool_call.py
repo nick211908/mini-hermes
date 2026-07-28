@@ -38,6 +38,7 @@ class ParsedToolCall:
 # ---------------------------------------------------------------------------
 
 class ToolCallingStrategy:
+
     """Interface that the Agent delegates to."""
 
     def prepare_kwargs(self, kwargs: dict, tools: list[dict]) -> dict:

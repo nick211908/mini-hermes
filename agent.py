@@ -1,5 +1,5 @@
 from openai import OpenAI
-from tool_call import strategy_for_model
+from tool_call import strategy_for_model,ToolCallingStrategy
 
 class Agent:
 
@@ -12,48 +12,51 @@ class Agent:
         self.msg=[{"role":"system","content":system_prompt}]
 
 
-        def run(self,user_input):
-            self.msg.append({"role":"user","content":user_input})
-            max_iteration=15
+    def run(self,user_input):
+        
+        self.msg.append({"role":"user","content":user_input})
+        max_iteration=15
 
-            for _ in range(max_iteration+1):
-                response=self._call_llm()
+        for _ in range(max_iteration+1):
+            response=self._call_llm()
 
-                message = response.choices[0].message.content
+            message = response.choices[0].message.content
 
-                content,tool_calls = self._strategy.parse_response(response)
+            content,tool_calls = self._strategy.parse_response(response)
 
-                assitant_msg = self._strategy.build_assistant_msg(content,tool_calls)
+            assitant_msg = self._strategy.build_assistant_msg(content,tool_calls)
 
-                self.msg.append(assitant_msg)
+            self.msg.append(assitant_msg)
 
-                if not tool_calls:
-                    return content
+            if not tool_calls:
+                return content
 
-                for tc in tool_calls:
-                    result = self._execute_tool(tc.name,tc.args)
+            for tc in tool_calls:
+                result = self._execute_tool(tc.name,tc.args)
 
-                    result_msg = self._strategy.build_tool_result_msg(tc, result)
-                    self.messages.append(result_msg)
-            return f"{max_iteration} Reached. Task could not be accomplished"
-        def _call_llm(self):
-            kwargs={"model":self.model,"messages":self.msg,"max_tokens":4096}
+                result_msg = self._strategy.build_tool_result_msg(tc, result)
+                self.messages.append(result_msg)
+        return f"{max_iteration} Reached. Task could not be accomplished"
 
-            kwargs = self._strategy.prepare_kwargs(kwargs,self.tools)
+    
+    def _call_llm(self):
+        kwargs={"model":self.model,"messages":self.msg,"max_tokens":4096}
 
-            return self.client.chat.completions.create(**kwargs)
+        kwargs = self._strategy.prepare_kwargs(kwargs,self.tools)
 
-        def _execute_tool(self,name:str,args:dict)->str:
+        return self.client.chat.completions.create(**kwargs)
 
-            handler=self.tool_handler.get(name)
+    def _execute_tool(self,name:str,args:dict)->str:
 
-            if not handler:
-                return f"Unkwnon Tool Name {name}"
+        handler=self.tool_handler.get(name)
 
-            try:
+        if not handler:
+            return f"Unkwnon Tool Name {name}"
 
-                result = handler(**args)
+        try:
 
-                return str(result)[:50000]
-            except Exception as e:
-                return f"Error executing tool {name}: {str(e)}"
+            result = handler(**args)
+
+            return str(result)[:50000]
+        except Exception as e:
+            return f"Error executing tool {name}: {str(e)}"
